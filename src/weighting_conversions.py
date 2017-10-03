@@ -6,8 +6,8 @@ ALL UNITS IN BITS
 
 All functions accept:
 1.) Current allocation of resource
-2.) Percentage to change resource. 
-- A positive number means to increase the resource provisioning by a certain amount. 
+2.) Percentage to change resource.
+- A positive number means to increase the resource provisioning by a certain amount.
 - A negative numbers means to decrease the resource provisioning by a certain amount
 
 Returns the new bandwdith
@@ -37,7 +37,7 @@ def convert_percent_to_raw(mr, current_mr_allocation, weight_change=0):
 # Current Capacity in bits/p
 def weighting_to_net_bandwidth(weight_change, current_alloc):
     new_bandwidth = current_alloc + ((weight_change / 100.0) * current_alloc)
-    assert new_bandwidth > 0 
+    assert new_bandwidth > 0
     return int(new_bandwidth)
 
 # Change the weighting on the blkio
@@ -55,7 +55,7 @@ def weighting_to_blkio(weight_change, current_alloc):
 def weighting_to_cpu_quota(weight_change, current_alloc):
     # We divide by 100 because CPU quota allocation is given as percentage
     new_quota = current_alloc + int(current_alloc * weight_change/100.0)
-    assert new_quota > 0 
+    assert new_quota > 0
     return int(new_quota)
 
 # Alternative method of changing the CPU stresing
@@ -63,7 +63,7 @@ def weighting_to_cpu_quota(weight_change, current_alloc):
 # This is a special case, unlike the other types of stressing
 def weighting_to_cpu_cores(weight_change, current_alloc):
     assert current_alloc > 0
-    
+
     new_cores = round(current_alloc + (weight_change / 100.0) * current_alloc)
     if new_cores == current_alloc:
         if weight_change < 0:

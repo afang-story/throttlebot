@@ -55,7 +55,7 @@ def measure_nginx_single_machine(workload_configuration, experiment_iterations):
 
     ssh_client = get_client(traffic_generate_machine)
 
-    NUM_REQUESTS = 5
+    NUM_REQUESTS = 100
     CONCURRENCY = 1
     ACCEPTABLE_MS = 60
 

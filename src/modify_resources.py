@@ -11,7 +11,6 @@ from weighting_conversions import *
 from remote_execution import *
 from measure_utilization import *
 from container_information import *
-from max_resource_capacity import *
 
 
 quilt_machines = ("quilt", "ps")
@@ -126,7 +125,7 @@ def set_cpu_quota(ssh_client, container_id, cpu_period, cpu_quota_percent):
     print 'CPU Quota: {}'.format(cpu_quota)
 
     throttled_containers = []
-    
+
     update_command = 'docker update --cpu-period={} --cpu-quota={} {}'.format(cpu_period, cpu_quota, container_id)
     print update_command
     ssh_exec(ssh_client, update_command)
