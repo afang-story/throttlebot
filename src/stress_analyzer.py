@@ -25,7 +25,7 @@ def generate_mr_from_policy(redis_db, stress_policy):
 def get_all_mrs_cluster(vm_list, services, resources):
     mr_schedule = []
     service_to_deployment = get_service_placements(vm_list)
-    
+
     for service in service_to_deployment:
         if service not in services:
             continue
@@ -45,5 +45,3 @@ if __name__ == "__main__":
     parser.add_argument("--stress_all_resources", action="store_true", help="Stress all resources")
     parser.add_argument("--stress_search_policy", help="Type of stress policy")
     args = parser.parse_args()
-
-

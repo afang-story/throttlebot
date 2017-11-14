@@ -22,7 +22,7 @@ def get_actual_vms():
 
     # Identify the machine index of the master node
     machine_roles = parse_quilt_ps_col(2, machine_level=True)
-    
+
     # Get the IP addresses of all the machines
     machine_ips = parse_quilt_ps_col(6, machine_level=True)
 
@@ -44,7 +44,7 @@ def get_actual_services():
 def parse_quilt_ps_col(column, machine_level=True):
     ps_args = ['quilt', 'ps']
     awk_args = ["awk", r'{{print ${}}}'.format(column)]
-    
+
     ps = subprocess.Popen(ps_args, stdout=subprocess.PIPE)
     col_results = subprocess.check_output(awk_args, stdin=ps.stdout)
     result_list = []
@@ -97,7 +97,7 @@ def get_instance_specs(machine_type, provider='aws-ec2'):
         'c1.medium':   {'CPU-CORE': 2,  'DISK': 0,   'NET': 0},
         'c1.xlarge':   {'CPU-CORE': 8,  'DISK': 0,   'NET': 0},
         'cc2.8xlarge': {'CPU-CORE': 16, 'DISK': 0,   'NET': 0},
-        'cg1.4xlarge': {'CPU-CORE': 8,  'DISK': 0,   'NET': 0}, 
+        'cg1.4xlarge': {'CPU-CORE': 8,  'DISK': 0,   'NET': 0},
         'cr1.8xlarge': {'CPU-CORE': 16, 'DISK': 0,   'NET': 0},
         'c3.large':    {'CPU-CORE': 1,  'DISK': 0,   'NET': 0,    'MEMORY': 3.75, 'STORAGE': '2 x 16 SSD'},
         'c3.xlarge':   {'CPU-CORE': 2,  'DISK': 0,   'NET': 0,    'MEMORY': 7.5,  'STORAGE': '2 x 40 SSD'},
@@ -212,4 +212,3 @@ def get_vm_to_service(vm_ips):
                 vm_to_service[vm_ip] = [service]
         remote_exec.close_client(ssh_client)
     return vm_to_service
-
