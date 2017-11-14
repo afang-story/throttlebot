@@ -1,9 +1,4 @@
 import redis.client
-import matplotlib.pyplot as plt
-from string import maketrans
-from ast import literal_eval
-import numpy as np
-import datetime, os
 
 from mr import MR
 
@@ -63,7 +58,7 @@ def write_redis_ranking(redis_db, experiment_iteration_count, perf_metric, mean_
 
 # Redis sets are ordered from lowest score to the highest score
 # A metric where lower is better would have get_lowest parameter set to True
-def get_top_n_mimr(redis_db, experiment_iteration_count, perf_metric, stress_weight, optimize_for_lowest=True, num_results_returned=1):
+def get_top_n_mimr(redis_db, experiment_iteration_count, perf_metric, stress_weight, gradient_mode, optimize_for_lowest=True, num_results_returned=-1):
     sorted_set_name = generate_ordered_performance_key(experiment_iteration_count, perf_metric, stress_weight)
     print 'Recovering the MIMR from ', sorted_set_name
 
@@ -100,72 +95,48 @@ def write_filtered_results(redis_db, filter_type, exp_iteration, repr_string, ex
 def get_top_n_filtered_results(redis_db,
                                filter_type,
                                exp_iteration,
+                               sys_config,
                                optimize_for_lowest=True,
-                               num_results_returned=0):
+                               num_results_returned=-1):
     sorted_set_name = generate_ordered_filter_key(filter_type, exp_iteration)
     print 'INFO: Recovering the bottlenecked pipeline...'
 
     # If improving performance means lowering the performance
     # increased performnace should be the MIMR
     if optimize_for_lowest is False:
-        pipeline_score_list = redis_db.zrange(sorted_set_name, 0, num_results_returned, desc=False, withscores=True)
+        pipeline_score_list = redis_db.zrange(sorted_set_name, 0,
+                                              num_results_returned,
+                                              desc=False, withscores=True)
     else:
-        pipeline_score_list = redis_db.zrange(sorted_set_name, 0, num_results_returned, desc=True, withscores=True)
+        pipeline_score_list = redis_db.zrange(sorted_set_name, 0,
+                                              num_results_returned,
+                                              desc=True, withscores=True)
 
     return pipeline_score_list
-
-'''
-Get charts of the results of the experiments
-'''
-def get_summary_mimr_charts(redis_db, workload_config, baseline_perf, mr_to_stress, experiment_iteration_count, stress_weights, preferred_performance_metric, time_id):
-    max_stress = min(stress_weights)
-    width = 0.8
-    indices = np.arange(experiment_iteration_count + 1)
-    chart_directory = 'results/graphs/{}/'.format(workload_config['type'] + time_id)
-    # Save the image in the appropriate directory
-    if not os.path.exists(chart_directory):
-        os.makedirs(chart_directory)
-
-    baseline = baseline_perf[preferred_performance_metric]
-    baseline_result = float(sum(baseline)) / len(baseline)
-
-    baseline_results = [baseline_result for _ in range(experiment_iteration_count + 1)]
-
-    for mr in mr_to_stress:
-        experiment_results = []
-        for iteration in range(experiment_iteration_count + 1):
-            try:
-                result_dict = read_redis_result(redis_db, iteration, mr, preferred_performance_metric)
-                exp_results = literal_eval(result_dict[str(max_stress)])
-                experiment_results.append(float(sum(exp_results)) / len(exp_results))
-            except:
-                experiment_results.append(0)
-
-        plt.bar(indices, experiment_results, width=width, color='b', label='Max Stress {} Performance'.format(max_stress))
-        plt.bar(indices, baseline_results, width=0.5*width, color='r', alpha=0.5, label='Baseline Performance')
-        plt.xticks(indices, [i for i in range(experiment_iteration_count + 1)])
-        plt.legend()
-        plt.title('{} Performance under Stress'.format(mr.to_string()))
-        plt.xlabel('Experiment #')
-        plt.ylabel('Latency_99 (ms)')
-        chart_name = '{}{}{}.png'.format(chart_directory, iteration, mr.to_string().translate(maketrans('/', '_')))
-        plt.savefig(chart_name, bbox_inches='tight')
-        plt.clf()
 
 '''
 Summary Operations!
 
 After each iteration of Throttlebot, write a summary, essentially a record of what Throttlebot did
 perf_gain should be the performance gain over the baseline
-action_taken should be the amount of performance improvement given to the MIMR  in the form of +x, where x is a raw amount added to the MR
+action_taken maps a MR to the amount that it was added to or removed from
 Currently assuming that there is only a single metric that a user would care about
+Elapsed time is in seconds
 '''
 
-def write_summary_redis(redis_db, experiment_iteration_count, mimr, perf_gain, action_taken):
+def write_summary_redis(redis_db, experiment_iteration_count, mimr, perf_gain, action_taken, analytic_perf, current_perf, elapsed_time, cumm_mr):
+    action_taken_str = ''
+    for mr in action_taken:
+        action_taken_str += 'MR {} changed by {},'.format(mr.to_string(), action_taken[mr])
+    
     hash_name = '{}summary'.format(experiment_iteration_count)
     redis_db.hset(hash_name, 'mimr', mimr.to_string())
     redis_db.hset(hash_name, 'perf_improvement', perf_gain)
-    redis_db.hset(hash_name, 'action_taken', action_taken)
+    redis_db.hset(hash_name, 'action_taken', action_taken_str)
+    redis_db.hset(hash_name, 'current_perf', current_perf)
+    redis_db.hset(hash_name, 'elapsed_time', elapsed_time)
+    redis_db.hset(hash_name, 'cumulative_mr', cumm_mr)
+    redis_db.hset(hash_name, 'analytic_perf', analytic_perf)
     print 'Summary of Iteration {} written to redis'.format(experiment_iteration_count)
 
 def read_summary_redis(redis_db, experiment_iteration_count):
@@ -173,7 +144,12 @@ def read_summary_redis(redis_db, experiment_iteration_count):
     mimr = redis_db.hget(hash_name, 'mimr')
     perf_improvement = redis_db.hget(hash_name, 'perf_improvement')
     action_taken = redis_db.hget(hash_name, 'action_taken')
-    return mimr, action_taken, perf_improvement
+    current_perf = redis_db.hget(hash_name, 'current_perf')
+    elapsed_time = redis_db.hget(hash_name, 'elapsed_time')
+    cumulative_mr = redis_db.hget(hash_name, 'cumulative_mr')
+    analytic_perf = redis_db.hget(hash_name, 'analytic_perf')
+    return mimr, action_taken, perf_improvement,analytic_perf, current_perf, elapsed_time, cumulative_mr
+
 
 '''
 This index is a mapping of a particular service (which is assumed to be
